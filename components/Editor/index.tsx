@@ -1,21 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import {
+  findNode,
+  queryCommandState,
+  queryCommandValue,
+} from '../../utils/editor'
 import styles from './styles.scss'
-
-export const queryCommandState = (cmd: string) => {
-  return document.queryCommandState(cmd)
-}
-
-export const queryCommandValue = (cmd: string) => {
-  return document.queryCommandValue(cmd)
-}
-
-export const findNode = (element: HTMLElement, nodeName: string) => {
-  if (element && nodeName) {
-    const node = element.closest(nodeName)
-    return node && !!node.nodeName
-  }
-  if (!element) return
-}
 
 interface IEditor {
   state: string
@@ -74,8 +63,10 @@ export default function Editor(props: IEditor) {
     sel = d.getSelection()
   }
 
+  // get active command and set active class to tolbar button
   const getCommand = () => {
-    if (!!sel.focusNode.parentNode.attributes['data-checklist']) {
+    console.log('sel', checkListItem)
+    if (!!checkListItem && checkListItem.hasAttribute('data-checklist')) {
       const inlineCommand = ACTIONS.filter(({ cmd }) => {
         if (queryCommandState(cmd)) {
           return queryCommandState(cmd)
@@ -106,10 +97,10 @@ export default function Editor(props: IEditor) {
     } = sel
     console.log(cmd, val)
 
-    const unwrapList = () => {
-      parentElement.innerHTML = parentElement.textContent
+    const resetFormatBeforeCommand = () => {
       checkListItem = parentElement.closest('[data-checklist]')
       if (checkListItem) {
+        checkListItem.innerHTML = parentElement.textContent
         checkListItem.removeAttribute('class')
         checkListItem.removeAttribute('data-checklist')
       }
@@ -142,17 +133,17 @@ export default function Editor(props: IEditor) {
         }
 
         if (val !== 'insertCheckList') {
-          unwrapList()
+          resetFormatBeforeCommand()
         }
 
         // Unwrap formatBlock before wrap list
       } else if (cmd === 'insertOrderedList' && parentNode.nodeName !== 'LI') {
-        unwrapList()
+        resetFormatBeforeCommand()
       } else if (
         cmd === 'insertUnorderedList' &&
         parentNode.nodeName !== 'LI'
       ) {
-        unwrapList()
+        resetFormatBeforeCommand()
       }
 
       d.execCommand(cmd, false, val)
@@ -163,19 +154,21 @@ export default function Editor(props: IEditor) {
   const appendCheckbox = (element: HTMLElement) => {
     element.insertAdjacentHTML(
       'afterbegin',
-      '<label class="checkbox" data-checkbox><input type="checkbox" contentEditable="false"/></label>',
+      '<label class="checkbox" data-checkbox contentEditable="true"><input type="checkbox" contentEditable="false"/></label>',
     )
   }
 
-  const onKeyPress = (e: KeyboardEvent) => {
+  const onKeyUp = ({ charCode }: { charCode: number }) => {
+    const range = document.createRange()
+    const { focusNode } = sel
+    checkListItem =
+      focusNode.parentNode.closest('[data-checklist]') ||
+      focusNode.parentNode.parentNode.closest('[data-checklist]')
+
     if (
       ACTIONS.some(({ cmd }) => cmd === 'insertCheckList') &&
-      e.charCode === 13
+      charCode === 13
     ) {
-      const range = document.createRange()
-      const { focusNode } = sel
-      checkListItem = focusNode.parentNode.closest('[data-checklist]')
-
       if (
         focusNode.textContent === '' &&
         !activeCommands.some(c => c === 'p')
@@ -186,27 +179,28 @@ export default function Editor(props: IEditor) {
           exec('formatBlock', 'p')
           focusNode.innerHTML = ' '
         }, 0)
-      } else if (
-        focusNode &&
-        activeCommands.some(c => c === 'insertCheckList')
-      ) {
+      } else if (checkListItem) {
         setTimeout(() => {
-          if (!!checkListItem) {
-            appendCheckbox(checkListItem.nextSibling)
-            range.setStart(checkListItem.nextSibling, 1)
-            range.collapse(true)
-            sel.removeAllRanges()
-            sel.addRange(range)
-          }
+          appendCheckbox(checkListItem.nextSibling)
+          range.setStart(checkListItem.nextSibling, 1)
+          range.collapse(true)
+          sel.removeAllRanges()
+          sel.addRange(range)
         }, 0)
       }
     }
+
+    getCommand()
   }
 
   useEffect(() => {
     if (editor.current && !init) {
       editor.current.innerHTML = props.state
       setInit(true)
+    }
+
+    if (editor.current && !editor.current.innerHTML) {
+      exec('formatBlock', 'p')
     }
   })
 
@@ -229,12 +223,8 @@ export default function Editor(props: IEditor) {
         ref={editor}
         className={styles['editor-content']}
         contentEditable
-        onKeyPress={onKeyPress}
-        onKeyDown={getCommand}
-        onMouseUp={() => {
-          getCommand()
-          editor.current.focus()
-        }}
+        onKeyPress={onKeyUp}
+        onMouseUp={getCommand}
       ></div>
     </div>
   )
