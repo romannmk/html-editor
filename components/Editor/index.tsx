@@ -98,14 +98,35 @@ export default function Editor(props: IEditor) {
   }
 
   const exec = (cmd: string, val?: string) => {
+    if (editor.current) {
+      editor.current.focus()
+    }
     const {
       focusNode: { parentNode, parentElement },
     } = sel
     console.log(cmd, val)
 
+    const unwrapList = () => {
+      parentElement.innerHTML = parentElement.textContent
+      checkListItem = parentElement.closest('[data-checklist]')
+      if (checkListItem) {
+        checkListItem.removeAttribute('class')
+        checkListItem.removeAttribute('data-checklist')
+      }
+      d.execCommand('formatBlock', true, 'div')
+    }
+
     if (d && sel) {
-      const checkbox = parentElement.querySelector('[data-checkbox]')
       if (cmd === 'formatBlock') {
+        // Unwrap list before formatBlock
+        if (findNode(sel.focusNode.parentNode, 'li')) {
+          if (findNode(sel.focusNode.parentNode, 'ol')) {
+            d.execCommand('insertOrderedList', false, val)
+          } else if (findNode(sel.focusNode.parentNode, 'ul')) {
+            d.execCommand('insertUnorderedList', false, val)
+          }
+        }
+
         // insert checklist item
         if (val === 'insertCheckList') {
           d.execCommand('formatBlock', false, 'div')
@@ -116,67 +137,26 @@ export default function Editor(props: IEditor) {
               : sel.focusNode.parentNode.closest('div')
           checkListItem.className = 'checklist-item'
           checkListItem.setAttribute('data-checklist', '')
-          const checkboxes = checkListItem.querySelectorAll('[data-checkbox]')
 
-          if (checkboxes && checkboxes.length === 0) {
-            appendCheckbox(checkListItem)
-          }
+          appendCheckbox(checkListItem)
         }
 
         if (val !== 'insertCheckList') {
-          checkListItem = parentElement.closest('[data-checklist]')
-          if (checkListItem) {
-            checkListItem.removeAttribute('class')
-            checkListItem.removeAttribute('data-checklist')
-
-            if (checkbox) {
-              checkListItem.removeChild(checkbox)
-            }
-          }
-          d.execCommand(cmd, false, val)
-        }
-
-        // Unwrap list before formatBlock
-        if (findNode(parentElement, 'li')) {
-          if (findNode(parentElement, 'ol')) {
-            d.execCommand('insertOrderedList', false, val)
-          } else if (findNode(parentElement, 'ul')) {
-            d.execCommand('insertUnorderedList', false, val)
-          }
+          unwrapList()
         }
 
         // Unwrap formatBlock before wrap list
       } else if (cmd === 'insertOrderedList' && parentNode.nodeName !== 'LI') {
-        if (checkbox) {
-          parentElement.closest('[data-checklist]').removeChild(checkbox)
-        }
-        checkListItem = parentElement.closest('[data-checklist]')
-        if (checkListItem) {
-          checkListItem.removeAttribute('class')
-          checkListItem.removeAttribute('data-checklist')
-        }
-        d.execCommand('formatBlock', false, 'div')
+        unwrapList()
       } else if (
         cmd === 'insertUnorderedList' &&
         parentNode.nodeName !== 'LI'
       ) {
-        if (checkbox) {
-          parentElement.closest('[data-checklist]').removeChild(checkbox)
-        }
-        checkListItem = parentElement.closest('[data-checklist]')
-        if (checkListItem) {
-          checkListItem.removeAttribute('class')
-          checkListItem.removeAttribute('data-checklist')
-        }
-        d.execCommand('formatBlock', false, 'div')
+        unwrapList()
       }
 
       d.execCommand(cmd, false, val)
       getCommand()
-    }
-
-    if (editor.current) {
-      editor.current.focus()
     }
   }
 
