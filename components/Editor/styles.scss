@@ -1,0 +1,47 @@
+$dark: #000;
+$white: #fff;
+$grey: #777;
+
+$font: 16px sans-serif;
+
+.editor {
+  font: $font;
+}
+
+.editor-toolbar {
+  display: inline-flex;
+  background: $dark;
+  border-radius: 6px;
+
+  button {
+    padding: 0.75rem 1rem;
+    background: transparent;
+    color: $grey;
+    border: 0;
+    font: $font;
+    outline: none;
+    cursor: pointer;
+  }
+
+  :global(button.active) {
+    color: $white;
+  }
+}
+
+.editor-content {
+  padding: 1rem;
+  outline: none;
+
+  :global(.checklist-item) {
+    display: flex;
+    padding-left: 1rem;
+  }
+
+  :global(.checkbox) {
+    cursor: pointer;
+  }
+
+  :global(.checkbox > input) {
+    pointer-events: none;
+  }
+}
