@@ -1,6 +1,12 @@
 import { createRef, PureComponent } from 'react'
-import { HL_COLOR } from '../../contants/color'
-import { findNode, getCommand } from '../../utils/editor'
+import { COLORS, DEFAULT_NODE } from '../../contants'
+import { bind, timeout } from '../../utils/decorators'
+import {
+  findNode,
+  getCommand,
+  queryCommandState,
+  queryCommandValue,
+} from '../../utils/editor'
 import styles from './styles.scss'
 
 interface IEditor {
@@ -38,39 +44,63 @@ export default class Editor extends PureComponent<IEditor> {
         onClick: (cmd: string) => {
           if (
             this.parentNode.closest('[style]') &&
-            this.parentNode.style.backgroundColor === HL_COLOR
+            this.parentNode.style.backgroundColor === COLORS.highlight
           ) {
             this.exec(cmd, 'transparent')
             this.getCommand()
           } else {
-            this.exec(cmd, HL_COLOR)
+            this.exec(cmd, COLORS.highlight)
           }
         },
       },
       {
         cmd: 'insertOrderedList',
         label: 'ol',
-        onClick: (cmd: string) => this.exec(cmd),
+        onClick: async (cmd: string) => {
+          if (!queryCommandState(cmd)) {
+            await this.exec(cmd)
+          } else {
+            await this.exec('formatBlock', DEFAULT_NODE)
+          }
+        },
       },
       {
         cmd: 'insertUnorderedList',
         label: 'ul',
-        onClick: (cmd: string) => this.exec(cmd),
+        onClick: async (cmd: string) => {
+          if (!queryCommandState(cmd)) {
+            await this.exec(cmd)
+          } else {
+            await this.exec('formatBlock', DEFAULT_NODE)
+          }
+        },
       },
       {
-        cmd: 'p',
+        cmd: DEFAULT_NODE,
         label: 'p',
         onClick: (cmd: string) => this.exec('formatBlock', cmd),
       },
       {
         cmd: 'h2',
         label: 'h2',
-        onClick: (cmd: string) => this.exec('formatBlock', cmd),
+        onClick: (cmd: string) => {
+          if (queryCommandValue('formatBlock') !== cmd) {
+            this.exec('formatBlock', cmd)
+          } else {
+            this.exec('formatBlock', DEFAULT_NODE)
+          }
+        },
       },
       {
         cmd: 'h1',
         label: 'h1',
-        onClick: (cmd: string) => this.exec('formatBlock', cmd),
+        onClick: (cmd: string) => {
+          if (queryCommandValue('formatBlock') !== cmd) {
+            this.exec('formatBlock', cmd)
+          } else {
+            this.exec('formatBlock', DEFAULT_NODE)
+          }
+        },
       },
     ],
     activeCommands: [''],
@@ -89,6 +119,9 @@ export default class Editor extends PureComponent<IEditor> {
   public componentDidUpdate() {
     this.parentNode = this.doc.getSelection().focusNode.parentNode
     console.log('parentNode', this.parentNode, this.parentNode.nodeName)
+    if (this.editor.current && this.editor.current.innerHTML === '') {
+      this.exec('formatBlock', DEFAULT_NODE)
+    }
   }
 
   public render() {
@@ -122,24 +155,44 @@ export default class Editor extends PureComponent<IEditor> {
     )
   }
 
-  private onKeyDown = ({ keyCode }: { keyCode: number }) => {
+  @bind
+  private onKeyDown({ keyCode }: { keyCode: number }) {
     this.getCommand()
     if (
-      keyCode === 13 &&
-      this.state.activeCommands.some(c => c === 'backColor')
+      this.parentNode.nodeName === 'UL' &&
+      !queryCommandState('insertUnorderedList')
     ) {
-      this.exec('removeFormat')
+      this.resetBeforeTitle()
+    }
+    if (
+      this.parentNode.nodeName === 'OL' &&
+      !queryCommandState('insertOrderedList')
+    ) {
+      this.resetBeforeTitle()
+    }
+    if (
+      keyCode === 13 &&
+      ['h1', 'h2', 'h3'].some(f => f === queryCommandValue('formatBlock'))
+    ) {
+      this.resetBeforeTitle()
     }
   }
 
-  private getCommand = () => {
+  @bind
+  @timeout(0)
+  private resetBeforeTitle() {
+    this.exec('formatBlock', DEFAULT_NODE)
+  }
+
+  @bind
+  private getCommand() {
     this.setState({
       activeCommands: getCommand(this.state.actions),
     })
   }
 
-  private exec = (cmd: string, val?: string) => {
-    if (this.editor.current) this.editor.current.focus()
+  @bind
+  private exec(cmd: string, val?: string) {
     // reset format before command
     const reset = () => {
       document.execCommand('formatBlock', true, 'div')
@@ -164,5 +217,7 @@ export default class Editor extends PureComponent<IEditor> {
     }
     this.doc.execCommand(cmd, false, val)
     this.getCommand()
+
+    if (this.editor.current) this.editor.current.focus()
   }
 }

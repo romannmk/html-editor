@@ -1,4 +1,4 @@
-import { HL_COLOR } from '../contants/color'
+import { COLORS } from '../contants'
 import { IAction } from '../interfaces/editor'
 
 export const queryCommandState = (cmd: IAction['cmd']) => {
@@ -34,7 +34,7 @@ export const getCommand = (actions: IAction[]) => {
       if (queryCommandValue('formatBlock') === cmd) {
         return queryCommandValue('formatBlock')
       }
-      if (queryCommandValue(cmd) === HL_COLOR) {
+      if (queryCommandValue(cmd) === COLORS.highlight) {
         return queryCommandValue('backColor')
       }
     })
