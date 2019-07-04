@@ -40,7 +40,7 @@ export default class Editor extends PureComponent<IEditor> {
             this.parentNode.closest('[style]') &&
             this.parentNode.style.backgroundColor === HL_COLOR
           ) {
-            this.parentNode.closest('[style]').removeAttribute('style')
+            this.exec(cmd, 'transparent')
             this.getCommand()
           } else {
             this.exec(cmd, HL_COLOR)
@@ -67,7 +67,6 @@ export default class Editor extends PureComponent<IEditor> {
         label: 'h2',
         onClick: (cmd: string) => this.exec('formatBlock', cmd),
       },
-
       {
         cmd: 'h1',
         label: 'h1',
