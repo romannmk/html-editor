@@ -1,4 +1,4 @@
-import { createRef, PureComponent, Ref, RefObject } from 'react'
+import { createRef, PureComponent } from 'react'
 import { HL_COLOR } from '../../contants/color'
 import { findNode, getCommand } from '../../utils/editor'
 import styles from './styles.scss'
@@ -15,46 +15,35 @@ export default class Editor extends PureComponent<IEditor> {
       {
         cmd: 'bold',
         label: 'b',
-        onClick: async (cmd: string) => {
-          await this.exec(cmd)
-          await this.parentNode.setAttribute('data-mark', 'bold')
-        },
+        onClick: (cmd: string) => this.exec(cmd),
       },
       {
         cmd: 'italic',
         label: 'i',
-        onClick: async (cmd: string) => {
-          await this.exec(cmd)
-          await this.parentNode.setAttribute('data-mark', 'italic')
-        },
+        onClick: (cmd: string) => this.exec(cmd),
       },
       {
         cmd: 'underline',
         label: 'u',
-        onClick: async (cmd: string) => {
-          await this.exec(cmd)
-          await this.parentNode.setAttribute('data-mark', 'underline')
-        },
+        onClick: (cmd: string) => this.exec(cmd),
       },
       {
         cmd: 'strikeThrough',
         label: 's',
-        onClick: async (cmd: string) => {
-          await this.exec(cmd)
-          await this.parentNode.setAttribute('data-mark', 'strikeThrough')
-        },
+        onClick: (cmd: string) => this.exec(cmd),
       },
       {
         cmd: 'backColor',
         label: 'h',
-        onClick: async (cmd: string) => {
-          console.log()
-          if (this.parentNode.style.backgroundColor !== HL_COLOR) {
-            await this.exec(cmd, HL_COLOR)
-            await this.parentNode.classList.add(styles['editor-highlight'])
-            await this.parentNode.setAttribute('data-mark', 'backColor')
+        onClick: (cmd: string) => {
+          if (
+            this.parentNode.closest('[style]') &&
+            this.parentNode.style.backgroundColor === HL_COLOR
+          ) {
+            this.parentNode.closest('[style]').removeAttribute('style')
+            this.getCommand()
           } else {
-            await this.exec('removeFormat')
+            this.exec(cmd, HL_COLOR)
           }
         },
       },
@@ -127,15 +116,21 @@ export default class Editor extends PureComponent<IEditor> {
           className={styles['editor-content']}
           spellCheck={spellCheck}
           contentEditable
-          onKeyPress={this.onKeyPress}
+          onKeyDown={this.onKeyDown}
           onMouseUp={this.getCommand}
         ></div>
       </div>
     )
   }
 
-  private onKeyPress = () => {
+  private onKeyDown = ({ keyCode }: { keyCode: number }) => {
     this.getCommand()
+    if (
+      keyCode === 13 &&
+      this.state.activeCommands.some(c => c === 'backColor')
+    ) {
+      this.exec('removeFormat')
+    }
   }
 
   private getCommand = () => {
