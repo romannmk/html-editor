@@ -10,45 +10,49 @@ $font: 16px sans-serif;
   max-width: 700px;
 }
 
-.editor-toolbar {
+.toolbar {
   display: inline-flex;
   background: $dark;
   border-radius: 10px;
+  box-shadow: 0 5px 20px rgba($dark, 0.25);
+  padding: 0 1rem;
 
-  button {
-    padding: 0.75rem 1rem;
+  &__btn {
     background: transparent;
+    padding: 0 0.5rem;
+    height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     color: $grey;
     border: 0;
     font: $font;
     outline: none;
     cursor: pointer;
+
+    :global(span) {
+      font-size: 20px;
+    }
+
+    &--active {
+      color: $white;
+    }
   }
 
-  :global(button.active) {
-    color: $white;
+  &__divider {
+    padding: 0.75rem 0.75rem;
+    color: $grey;
+
+    &::before {
+      content: '';
+      display: inline-block;
+      width: 1px;
+      height: 100%;
+      background: $grey;
+    }
   }
 }
 
-.editor-content {
-  padding: 1rem;
+.content {
   outline: none;
-
-  :global(.checklist-item) {
-    display: flex;
-    padding-left: 22px;
-  }
-
-  :global(.checkbox) {
-    cursor: pointer;
-  }
-
-  :global(.checkbox > input) {
-    pointer-events: none;
-  }
-}
-
-.editor-highlight {
-  padding: 0 2px;
-  border-radius: 4px;
 }

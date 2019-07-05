@@ -1,5 +1,7 @@
+import Head from 'next/head'
 import { createRef, PureComponent } from 'react'
 import { COLORS, DEFAULT_NODE } from '../../contants'
+import { IAction, IEditorProps, IEditorState } from '../../interfaces/editor'
 import { bind, timeout } from '../../utils/decorators'
 import {
   findNode,
@@ -9,38 +11,53 @@ import {
 } from '../../utils/editor'
 import styles from './styles.scss'
 
-interface IEditor {
-  state: string
-  onChange?: (state: string) => void
-  spellCheck: boolean
-}
+export default class Editor extends PureComponent<IEditorProps, IEditorState> {
+  private doc!: HTMLDocument | any
+  private parentNode!: ParentNode | any
+  private editor = createRef<HTMLDivElement>()
 
-export default class Editor extends PureComponent<IEditor> {
-  public state = {
-    actions: [
+  public constructor(props: IEditorProps) {
+    super(props)
+
+    const defaultCommands: IAction[] = [
+      {
+        cmd: 'undo',
+        label: 'undo',
+        onClick: (cmd: string) => this.exec(cmd),
+      },
+      {
+        cmd: 'redo',
+        label: 'redo',
+        onClick: (cmd: string) => this.exec(cmd),
+      },
+      {
+        cmd: 'divider',
+        label: '',
+        onClick: () => null,
+      },
       {
         cmd: 'bold',
-        label: 'b',
+        label: 'format_bold',
         onClick: (cmd: string) => this.exec(cmd),
       },
       {
         cmd: 'italic',
-        label: 'i',
+        label: 'format_italic',
         onClick: (cmd: string) => this.exec(cmd),
       },
       {
         cmd: 'underline',
-        label: 'u',
+        label: 'format_underline',
         onClick: (cmd: string) => this.exec(cmd),
       },
       {
         cmd: 'strikeThrough',
-        label: 's',
+        label: 'strikethrough_s',
         onClick: (cmd: string) => this.exec(cmd),
       },
       {
         cmd: 'backColor',
-        label: 'h',
+        label: 'format_color_fill',
         onClick: (cmd: string) => {
           if (
             this.parentNode.closest('[style]') &&
@@ -54,8 +71,24 @@ export default class Editor extends PureComponent<IEditor> {
         },
       },
       {
+        cmd: 'divider',
+        label: '',
+        onClick: () => null,
+      },
+      {
+        cmd: 'blockquote',
+        label: 'format_quote',
+        onClick: (cmd: string) => {
+          if (queryCommandValue('formatBlock') !== cmd) {
+            this.exec('formatBlock', cmd)
+          } else {
+            this.exec('formatBlock', DEFAULT_NODE)
+          }
+        },
+      },
+      {
         cmd: 'insertOrderedList',
-        label: 'ol',
+        label: 'format_list_numbered',
         onClick: async (cmd: string) => {
           if (!queryCommandState(cmd)) {
             await this.exec(cmd)
@@ -66,7 +99,7 @@ export default class Editor extends PureComponent<IEditor> {
       },
       {
         cmd: 'insertUnorderedList',
-        label: 'ul',
+        label: 'format_list_bulleted',
         onClick: async (cmd: string) => {
           if (!queryCommandState(cmd)) {
             await this.exec(cmd)
@@ -77,12 +110,12 @@ export default class Editor extends PureComponent<IEditor> {
       },
       {
         cmd: DEFAULT_NODE,
-        label: 'p',
+        label: 'title',
         onClick: (cmd: string) => this.exec('formatBlock', cmd),
       },
       {
         cmd: 'h2',
-        label: 'h2',
+        label: 'looks_two',
         onClick: (cmd: string) => {
           if (queryCommandValue('formatBlock') !== cmd) {
             this.exec('formatBlock', cmd)
@@ -93,7 +126,7 @@ export default class Editor extends PureComponent<IEditor> {
       },
       {
         cmd: 'h1',
-        label: 'h1',
+        label: 'looks_one',
         onClick: (cmd: string) => {
           if (queryCommandValue('formatBlock') !== cmd) {
             this.exec('formatBlock', cmd)
@@ -102,26 +135,32 @@ export default class Editor extends PureComponent<IEditor> {
           }
         },
       },
-    ],
-    activeCommands: [''],
-    checkListItem: null,
+    ]
+
+    this.state = {
+      actions: props.actions.map((action: string) =>
+        defaultCommands.find(({ cmd }) => action === cmd),
+      ),
+      activeCommands: [''],
+    }
   }
 
-  private doc!: HTMLDocument | any
-  private parentNode!: ParentNode | any
-  private editor = createRef<HTMLDivElement>()
-
   public componentDidMount() {
-    if (this.editor.current) this.editor.current.innerHTML = this.props.state
     this.doc = document
+
+    if (this.editor.current) {
+      this.editor.current.innerHTML = this.props.state
+      if (this.props.autoFocus) this.editor.current.focus()
+    }
   }
 
   public componentDidUpdate() {
     this.parentNode = this.doc.getSelection().focusNode.parentNode
-    console.log('parentNode', this.parentNode, this.parentNode.nodeName)
     if (this.editor.current && this.editor.current.innerHTML === '') {
       this.exec('formatBlock', DEFAULT_NODE)
     }
+
+    console.log('parentNode', this.parentNode, this.parentNode.nodeName)
   }
 
   public render() {
@@ -129,42 +168,68 @@ export default class Editor extends PureComponent<IEditor> {
     const { spellCheck } = this.props
 
     return (
-      <div className={styles.editor}>
-        <div className={styles['editor-toolbar']}>
-          {actions.map(({ cmd, label, onClick }) => {
-            return (
-              <button
-                key={label}
-                className={activeCommands.some(c => cmd === c) ? 'active' : ''}
-                onMouseDown={() => onClick(cmd)}
-              >
-                {label}
-              </button>
-            )
-          })}
+      <>
+        <Head>
+          <link
+            href="https://fonts.googleapis.com/icon?family=Material+Icons"
+            rel="stylesheet"
+          ></link>
+        </Head>
+        <div className={styles.editor}>
+          <div className={styles.toolbar}>
+            {actions.map(({ cmd, label, onClick }) => {
+              const key = +new Date() + Math.random()
+              if (cmd === 'divider') {
+                return (
+                  <span key={key} className={styles.toolbar__divider}>
+                    {label}
+                  </span>
+                )
+              }
+              return (
+                <button
+                  key={key}
+                  className={
+                    activeCommands.some(c => cmd === c)
+                      ? `${styles.toolbar__btn} ${styles['toolbar__btn--active']}`
+                      : styles.toolbar__btn
+                  }
+                  onMouseDown={() => onClick(cmd)}
+                >
+                  <span className="material-icons">{label}</span>
+                </button>
+              )
+            })}
+          </div>
+          <div
+            ref={this.editor}
+            contentEditable
+            className={styles.content}
+            spellCheck={spellCheck || false}
+            onInput={this.onChange}
+            onKeyDown={this.onKeyDown}
+            onMouseUp={this.getCommand}
+          ></div>
         </div>
-        <div
-          ref={this.editor}
-          className={styles['editor-content']}
-          spellCheck={spellCheck}
-          contentEditable
-          onKeyDown={this.onKeyDown}
-          onMouseUp={this.getCommand}
-        ></div>
-      </div>
+      </>
     )
   }
 
-  @bind
-  private onKeyDown({ keyCode }: { keyCode: number }) {
+  @bind private onChange(e: React.FormEvent<HTMLDivElement>) {
+    if (this.props.onChange) this.props.onChange(e.currentTarget.innerHTML)
+  }
+
+  @bind private onKeyDown({ keyCode }: { keyCode: number }) {
     this.getCommand()
     if (
+      this.parentNode &&
       this.parentNode.nodeName === 'UL' &&
       !queryCommandState('insertUnorderedList')
     ) {
       this.resetBeforeTitle()
     }
     if (
+      this.parentNode &&
       this.parentNode.nodeName === 'OL' &&
       !queryCommandState('insertOrderedList')
     ) {
@@ -195,7 +260,7 @@ export default class Editor extends PureComponent<IEditor> {
   private exec(cmd: string, val?: string) {
     // reset format before command
     const reset = () => {
-      document.execCommand('formatBlock', true, 'div')
+      this.doc.execCommand('formatBlock', false, 'div')
     }
 
     if (cmd === 'formatBlock') {
