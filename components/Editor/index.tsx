@@ -219,7 +219,7 @@ export default class Editor extends PureComponent<IEditorProps, IEditorState> {
     if (this.props.onChange) this.props.onChange(e.currentTarget.innerHTML)
   }
 
-  @bind private onKeyDown({ keyCode }: { keyCode: number }) {
+  @bind private onKeyDown({ keyCode }: React.KeyboardEvent<HTMLDivElement>) {
     this.getCommand()
     if (
       this.parentNode &&
